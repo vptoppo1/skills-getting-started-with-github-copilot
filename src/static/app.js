@@ -35,7 +35,14 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           participantsHtml =
             '<ul class="participants-list">' +
-            participants.map((p) => `<li>${escapeHtml(p)}</li>`).join("") +
+            participants
+              .map(
+                (p) =>
+                  `<li><span class="participant-email">${escapeHtml(p)}</span><button class="delete-btn" data-activity="${escapeHtml(
+                    name
+                  )}" data-email="${escapeHtml(p)}" aria-label="Remove participant">&times;</button></li>`
+              )
+              .join("") +
             "</ul>";
         }
 
@@ -64,6 +71,49 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error fetching activities:", error);
     }
   }
+
+  // Unregister participant helper
+  async function unregisterParticipant(activity, email) {
+    try {
+      const url = `/activities/${encodeURIComponent(activity)}/participants?email=${encodeURIComponent(email)}`;
+      const response = await fetch(url, { method: "DELETE" });
+      const result = await response.json();
+      if (response.ok) {
+        messageDiv.textContent = result.message;
+        messageDiv.className = "message success";
+        messageDiv.classList.remove("hidden");
+
+        // Refresh activities to reflect change
+        await fetchActivities();
+
+        setTimeout(() => messageDiv.classList.add("hidden"), 3000);
+      } else {
+        messageDiv.textContent = result.detail || "Failed to unregister participant";
+        messageDiv.className = "message error";
+        messageDiv.classList.remove("hidden");
+      }
+    } catch (err) {
+      console.error("Error unregistering participant:", err);
+      messageDiv.textContent = "Failed to unregister participant";
+      messageDiv.className = "message error";
+      messageDiv.classList.remove("hidden");
+    }
+  }
+
+  // Event delegation for delete buttons
+  activitiesList.addEventListener("click", (e) => {
+    const btn = e.target.closest(".delete-btn");
+    if (!btn) return;
+    const activityName = btn.dataset.activity;
+    const email = btn.dataset.email;
+
+    if (!activityName || !email) return;
+
+    // Confirm before deleting
+    if (!confirm(`Unregister ${email} from ${activityName}?`)) return;
+
+    unregisterParticipant(activityName, email);
+  });
 
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
